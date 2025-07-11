@@ -53,26 +53,21 @@ GameState runMenu(GameContext& ctx) {
     Mix_Music* menuMusic = Mix_LoadMUS("assets/audio/menu_background.mp3");
     if (menuMusic) {
         Mix_PlayMusic(menuMusic, -1);
-    } else {
-        std::cerr << "Failed to load menu music: " << Mix_GetError() << std::endl;
     }
 
     TTF_Font* font = TTF_OpenFont("assets/fonts/OpenSans-Bold.ttf", 36);
     TTF_Font* titleFont = TTF_OpenFont("assets/fonts/OpenSans-Bold.ttf", 48);
-    if (!font) {
+    if (!font || !titleFont) {
         std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
-        if (bg) SDL_DestroyTexture(bg);
-        if (Mix_PlayingMusic()) Mix_HaltMusic();
-        if (menuMusic) Mix_FreeMusic(menuMusic);
         return EXIT;
     }
 
     std::vector<Button> buttons;
     int btnWidth = 300, btnHeight = 60;
-    int startY = 160, spacing = 10;
+    int startY = 160;
     for (size_t i = 0; i < BUTTON_LABELS.size(); ++i) {
         int x = (720 - btnWidth) / 2;
-        int y = startY + i * (btnHeight + spacing);
+        int y = startY + static_cast<int>(i) * (btnHeight + 10);
         buttons.emplace_back(x, y, btnWidth, btnHeight, BUTTON_LABELS[i], BUTTON_COLOR);
     }
 
@@ -87,7 +82,7 @@ GameState runMenu(GameContext& ctx) {
     std::vector<std::string> leaderboardLines;
     std::string storyText;
 
-    std::ifstream storyFile("story.txt");
+    std::ifstream storyFile("assets/story.txt");
     if (!storyFile) {
         std::cerr << "Failed to open story.txt" << std::endl;
         return EXIT;
@@ -146,14 +141,21 @@ GameState runMenu(GameContext& ctx) {
                                 if (!mapTex) std::cerr << "Failed to load map.png: " << IMG_GetError() << std::endl;
                                 else showingMap = true;
                             } else if (btn.label == "LEADERBOARD") {
-                                leaderboardBgTex = IMG_LoadTexture(renderer, "assets/images/leader.png");
-                                if (!leaderboardBgTex) std::cerr << "Failed to load leaderboard background: " << IMG_GetError() << std::endl;
-                                else {
-                                    showingLeaderboard = true;
-                                    std::ifstream file("leaderboard.txt");
+                                leaderboardBgTex = IMG_LoadTexture(renderer, "assets/images/leaderboard_background.png");
+                                if (!leaderboardBgTex) {
+                                    std::cerr << "Failed to load leaderboard background: " << IMG_GetError() << std::endl;
+                                } else {
                                     leaderboardLines.clear();
-                                    std::string line;
-                                    while (std::getline(file, line)) leaderboardLines.push_back(line);
+                                    std::ifstream lbFile("leaderboard.txt");
+                                    if (!lbFile) {
+                                        std::cerr << "Failed to open leaderboard.txt" << std::endl;
+                                    } else {
+                                        std::string entry;
+                                        while (std::getline(lbFile, entry)) {
+                                            leaderboardLines.push_back(entry);
+                                        }
+                                    }
+                                    showingLeaderboard = true;
                                 }
                             } else if (btn.label == "STORY") {
                                 storyBgTex = IMG_LoadTexture(renderer, "assets/images/back.png");
@@ -177,7 +179,6 @@ GameState runMenu(GameContext& ctx) {
                             }
                             std::string path = "assets/images/credits/" + clickedName + ".png";
                             clickedImage = IMG_LoadTexture(renderer, path.c_str());
-                            if (!clickedImage) std::cerr << "Failed to load image: " << IMG_GetError() << std::endl;
                         }
                     }
                 }
@@ -189,18 +190,14 @@ GameState runMenu(GameContext& ctx) {
 
         SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
         SDL_RenderClear(renderer);
-        
+
 
         if (showingCredits) {
             SDL_Texture* creditsBg = IMG_LoadTexture(renderer, "assets/images/back.png");
-if (creditsBg) {
-    SDL_RenderCopy(renderer, creditsBg, nullptr, nullptr);
-}
-SDL_Rect imgRect = {0, 0, 720, 720};
-SDL_RenderCopy(renderer, clickedImage, nullptr, &imgRect);
-if (creditsBg) {
-    SDL_DestroyTexture(creditsBg);
-}
+            if (creditsBg) {
+                SDL_RenderCopy(renderer, creditsBg, nullptr, nullptr);
+                SDL_DestroyTexture(creditsBg);
+            }
 
             int y = 150;
             nameRects.clear();
@@ -213,15 +210,43 @@ if (creditsBg) {
                 y += surf->h + 20;
                 SDL_FreeSurface(surf);
                 SDL_DestroyTexture(tex);
-                
             }
-            
+
             if (clickedImage) {
                 SDL_Rect imgRect = {0, 0, 720, 720};
                 SDL_RenderCopy(renderer, clickedImage, nullptr, &imgRect);
-
             }
-        }else {
+        } else if (showingStory) {
+            if (storyBgTex) {
+                SDL_RenderCopy(renderer, storyBgTex, nullptr, nullptr);
+            }
+
+            int y = 40 - scrollOffset;
+            for (const auto& line : wrappedText) {
+                SDL_Surface* surf = TTF_RenderText_Blended(font, line.c_str(), TEXT_COLOR);
+                SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+                SDL_Rect rect = {40, y, surf->w, surf->h};
+                SDL_RenderCopy(renderer, tex, nullptr, &rect);
+                y += surf->h + 10;
+                SDL_FreeSurface(surf);
+                SDL_DestroyTexture(tex);
+            }
+        } else if (showingMap && mapTex) {
+            SDL_RenderCopy(renderer, mapTex, nullptr, nullptr);
+        } else if (showingLeaderboard && leaderboardBgTex) {
+            SDL_RenderCopy(renderer, leaderboardBgTex, nullptr, nullptr);
+
+            int y = 180;
+            for (const auto& entry : leaderboardLines) {
+                SDL_Surface* surf = TTF_RenderText_Blended(font, entry.c_str(), TEXT_COLOR);
+                SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+                SDL_Rect rect = {(720 - surf->w) / 2, y, surf->w, surf->h};
+                SDL_RenderCopy(renderer, tex, nullptr, &rect);
+                y += surf->h + 10;
+                SDL_FreeSurface(surf);
+                SDL_DestroyTexture(tex);
+            }
+        } else {
             if (bg) SDL_RenderCopy(renderer, bg, nullptr, nullptr);
             if (titleFont) {
                 SDL_Surface* titleSurf = TTF_RenderText_Blended(titleFont, "ESCAPE ROOM CONQUEST", TEXT_COLOR);
@@ -256,7 +281,7 @@ if (creditsBg) {
             SDL_DestroyTexture(labelTex);
         }
 
-        SDL_RenderPresent(renderer);
+  SDL_RenderPresent(renderer);
     }
 
     if (bg) SDL_DestroyTexture(bg);
@@ -265,7 +290,7 @@ if (creditsBg) {
     if (storyBgTex) SDL_DestroyTexture(storyBgTex);
     if (clickedImage) SDL_DestroyTexture(clickedImage);
     TTF_CloseFont(font);
-    if (titleFont) TTF_CloseFont(titleFont);
+    TTF_CloseFont(titleFont);
     if (Mix_PlayingMusic()) Mix_HaltMusic();
     if (menuMusic) Mix_FreeMusic(menuMusic);
 

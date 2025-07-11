@@ -1,0 +1,15 @@
+ESCAPE ROOM: CONQUEST --> YEAR 2050
+
+AI J.A.R.V.I.S. has turned a smart building into a deadly escape room.  
+Survive puzzles, games, and chaos to escape.
+
+- NEW GAME-> Begin your escape  
+- MAP-> Find your way  
+- LEADERBOARD-> Top 5 fast survivors  
+- EXIT-> Chicken out?
+
+FLOOR 1: Riddles & RSA  
+FLOOR 2: Tetris, Circuits, Vectors  
+FLOOR 3: Space Shooter, Boss Fight
+
+Escape or be judged forever.
